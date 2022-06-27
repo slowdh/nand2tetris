@@ -37,3 +37,11 @@ These gates would be basic building blocks for building even complex chips.
     - no: if no, then out = !out
   - If we cleverly combine these six operations, all 18 operations above can be made!
   
+
+## 02_Register-RAM-PC
+#### Build memory: Now, we are able to store data & instructions.
+
+ - From register to RAM
+
+
+ - Implementation
