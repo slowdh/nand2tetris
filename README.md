@@ -38,10 +38,21 @@ These gates would be basic building blocks for building even complex chips.
   - If we cleverly combine these six operations, all 18 operations above can be made!
   
 
-## 02_Register-RAM-PC
-#### Build memory: Now, we are able to store data & instructions.
+## 02_RAM_PC
+#### Build memory: Now, we are able to store data.
+#### Build PC: Count, repeat, and reset. Makes working in more efficient way.
 
  - From register to RAM
-
-
- - Implementation
+   - Assume we have DFF as a basic building block. 
+     - Four nand gates can make SR Latch, which is primitive 1 bit memory cell.
+     - Two SR Latch + Clock input can make DFF, which can memorize the input for one clock.
+   - We can make 1 bit memory from DFF quite easily.
+   - 1 bit memory parallely scales up 16 bit Register.
+   - Register -> RAM 8 -> RAM 64 -> ... -> RAM 4K Scales up in a same fashion.
+   
+ 
+ - PC
+   - It is basically incremental counter, being able to reset status and receive initial number.
+   - Quite different from RAM logic, it is about continuous if-else logic.
+   - if-else logic can be implemented with Mux chip.
+   - Now we can count, track status from set of instructions!
