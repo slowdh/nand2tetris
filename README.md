@@ -14,7 +14,7 @@ These gates would be basic building blocks for building even complex chips.
   - [And, And16, DMux, DMux4Way, DMux8Way, Mux, Mux4Way16, Mux8Way16, Mux16, Not, Not16, Or, Or8Way, Or16, Xor]
 
   
-## 01_ALU
+## 02_ALU
 #### Build ALU: Now it starts do something useful.
 
 - What is ALU?
@@ -38,7 +38,7 @@ These gates would be basic building blocks for building even complex chips.
   - If we cleverly combine these six operations, all 18 operations above can be made!
   
 
-## 02_RAM_PC
+## 03_RAM_PC
 #### Build memory: Now, we are able to store data.
 #### Build PC: Count, repeat, and reset. Makes working in more efficient way.
 
@@ -56,3 +56,17 @@ These gates would be basic building blocks for building even complex chips.
    - Quite different from RAM logic, it is about continuous if-else logic.
    - if-else logic can be implemented with Mux chip.
    - Now we can count, track status from set of instructions!
+
+
+## 04_Low_level_programming
+
+- What is low level programming? (or Assembly language?)
+  - It is low level in a sense that it directly deals with hardware components inside computer.
+  - For example, we should specifically tell like put this data into that register or add this register value with other register value.
+  - In most cases, one low level operation can be directly translated to one specific hardware operation.
+
+
+- How to deal with basic functionality: Variable, Branching, Loop
+  - Variable is a symbol to specific RAM address. Variable is a mapping from address to readable name. Assembler deals with this.
+  - Branching is implemented with JMP instruction. Program Counter(PC) holds what address of instructions to run next time. By changing the value inside PC, we can change the flow of running instructions.
+  - Loop is a special case of branching, with counting.
