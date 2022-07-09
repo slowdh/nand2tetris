@@ -15,7 +15,7 @@ These gates would be basic building blocks for building even complex chips.
 
   
 ## 02_ALU
-#### Build ALU: Now it starts do something useful.
+#### Build ALU: Basic arithmatic, logic operation become possible. And that is enough.
 
 - What is ALU?
   - ALU is  chip (or circuit) which does bunch of Arithmatic & Logic operations.
@@ -59,6 +59,8 @@ These gates would be basic building blocks for building even complex chips.
 
 
 ## 04_Low_level_programming
+#### Low level programming: programming dealing with hardwares.
+
 
 - What is low level programming? (or Assembly language?)
   - It is low level in a sense that it directly deals with hardware components inside computer.
@@ -70,3 +72,8 @@ These gates would be basic building blocks for building even complex chips.
   - Variable is a symbol to specific RAM address. Variable is a mapping from address to readable name. Assembler deals with this.
   - Branching is implemented with JMP instruction. Program Counter(PC) holds what address of instructions to run next time. By changing the value inside PC, we can change the flow of running instructions.
   - Loop is a special case of branching, with counting.
+
+
+## Computer
+
+
