@@ -75,5 +75,23 @@ These gates would be basic building blocks for building even complex chips.
 
 
 ## Computer
+#### Computer = CPU + RAM 
 
 
+- What is computer?
+  - Computer at most basic is CPU + RAM.
+  - With RAM, we can store data with instructions.
+  - With CPU, we can manipulate on data.
+
+
+- What is CPU?
+  - CPU is composed of ALU, PC, several Registers (in here we have two).
+  - CPU receives instruction + data from RAM, and compute the data, store data back to RAM (which needs ram address, data).
+  - It also cares about what operation to run next time, PC.
+  - When operation tell to Jump, PC changes the state and jump to 'address' (A register value) next time.
+
+
+- What is RAM?
+  - It is basically bunch of registers.
+  - When instruction and data is stored at the same RAM (Unlike Harvard architecture), it should follow fetch-execution cycle.
+  - If using memory mapped I/O, some part of RAM is used for I/O devices. (like screen, mouse, keyboard)
