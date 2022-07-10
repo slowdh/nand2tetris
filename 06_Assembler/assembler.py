@@ -6,16 +6,20 @@ class Parser:
     And deals with white spaces and comments.
     """
     def __init__(self):
+        self.label = None
         self.value = None
         self.dest = None
         self.comp = None
         self.jmp = None
+        self.valid_line = False
 
     def _initialize_codes(self):
+        self.label = None
         self.value = None
         self.dest = None
         self.comp = None
         self.jmp = None
+        self.valid_line = False
 
     @staticmethod
     def _remove_comments(line):
@@ -37,8 +41,11 @@ class Parser:
         if len(preprocessed_line) == 0:
             return
 
-        if line[0] == '@':  # a_instruction
+        if line[0] == '(':  # label
+            self.label = line
+        elif line[0] == '@':  # a_instruction
             self.value = line[1:]
+            self.valid_line = True
         else:  # c_instruction
             if '=' in preprocessed_line:
                 self.dest, others = preprocessed_line.split('=')
@@ -46,10 +53,11 @@ class Parser:
                     self.comp, self.jmp = others.split(';')
                 else:
                     self.comp = others
+                self.valid_line = True
             else:
                 if ';' in preprocessed_line:
                     self.comp, self.jmp = preprocessed_line.split(';')
-
+                    self.valid_line = True
 
 class Translator:
     """
@@ -167,8 +175,44 @@ class Translator:
 class SymbolManager:
     """
     Deal with natural language symbols: Variables and Labels.
-    Makes table,
+    Makes table, map each symbol to RAM address.
+    At first cycle, only care about Labels.
+    Second cycle, unidentified symbols are all variables.
     """
+    def __init__(self):
+        self.symbol_table = {}
+        self.available_address = 0
+        self._set_predefined_symbols()
+
+    def _set_predefined_symbols(self):
+        predefined = {
+            'SCREEN': '16384',
+            'KBD': '24576',
+            'SP': '0',
+            'LCL': '1',
+            'ARG': '2',
+            'THIS': '3',
+            'THAT': '4'
+        }
+        # registers
+        for i in range(16):
+            predefined[f'R{i}'] = str(i)
+
+        self.symbol_table.update(predefined)
+        self.available_address += len(predefined)
+
+    def map_variable_to_available_address(self, variable):
+        self.symbol_table[variable] = self.available_address
+        self.available_address += 1
+
+    def map_label_to_instruction_address(self, label, current_address):
+        label = label.strip('()')
+        self.symbol_table[label] = current_address
+
+    def convert_symbol(self, symbol):
+        if symbol not in self.symbol_table:
+            self.map_variable_to_available_address(symbol)
+        return self.symbol_table[symbol]
 
 
 class Assembler:
@@ -190,18 +234,10 @@ class Assembler:
         current_line = 0
 
     def _reset_current_line(self):
-        self.current_line = 0
+        self.current_address = 0
 
     def translate(self, input_path, output_path):
-        # first path: deal with labels first.
-        with open(input_path, 'r') as rf:
-            pass
-
-        # second path: deal with variable, and translate one by one.
-        with open(input_path, 'r') as rf:
-            with open(output_path, 'w') as wf:
-                # print output
-                pass
+        pass
 
 
 if __name__ == '__main__':
@@ -237,5 +273,10 @@ if __name__ == '__main__':
                     else:
                         print(translator.translate_c_intruction(parser.dest, parser.comp, parser.jmp))
 
+
+    def test_symbol_table():
+        table = SymbolManager()
+        print(table.symbol_table)
     # test_parser()
-    test_translator()
+    # test_translator()
+    test_symbol_table()
