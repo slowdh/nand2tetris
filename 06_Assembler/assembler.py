@@ -59,6 +59,7 @@ class Parser:
                     self.comp, self.jmp = preprocessed_line.split(';')
                     self.valid_line = True
 
+
 class Translator:
     """
     Translate one assembly line into (mostly one line of) binary code.
@@ -171,6 +172,11 @@ class Translator:
         output += self._translate_jmp(jmp)
         return output
 
+    def translate_parsed_line(self, value, dest, comp, jmp):
+        if value:
+            return self.translate_a_instruction(value)
+        return self.translate_c_intruction(dest, comp, jmp)
+
 
 class SymbolManager:
     """
@@ -183,6 +189,14 @@ class SymbolManager:
         self.symbol_table = {}
         self.available_address = 0
         self._set_predefined_symbols()
+
+    @staticmethod
+    def is_int(n):
+        try:
+            int(n)
+            return True
+        except ValueError:
+            return False
 
     def _set_predefined_symbols(self):
         predefined = {
@@ -210,6 +224,8 @@ class SymbolManager:
         self.symbol_table[label] = current_address
 
     def convert_symbol(self, symbol):
+        if symbol is None or self.is_int(symbol):
+            return symbol
         if symbol not in self.symbol_table:
             self.map_variable_to_available_address(symbol)
         return self.symbol_table[symbol]
@@ -231,13 +247,42 @@ class Assembler:
             2.3.2. Variable, labels? -> Implement as 2 way path.
     """
     def __init__(self):
-        current_line = 0
+        self.current_address = 0
 
     def _reset_current_line(self):
         self.current_address = 0
 
-    def translate(self, input_path, output_path):
-        pass
+    def translate(self, input_path, output_path, debug=False):
+        parser = Parser()
+        symbol_manager = SymbolManager()
+        translator = Translator()
+
+        # first path: deal with labels first.
+        with open(input_path, 'r') as rf:
+            for line in rf:
+                parser.parse_line(line)
+                if parser.label:
+                    symbol_manager.map_label_to_instruction_address(parser.label, self.current_address)
+                if parser.valid_line:
+                    self.current_address += 1
+
+        # second path: deal with variable, and translate one by one.
+        self._reset_current_line()
+        with open(input_path, 'r') as rf:
+            with open(output_path, 'w') as wf:
+                for line in rf:
+                    parser.parse_line(line)
+                    if parser.valid_line:
+                        parser.label = symbol_manager.convert_symbol(parser.label)
+                        parser.value = symbol_manager.convert_symbol(parser.value)
+                        translated = translator.translate_parsed_line(
+                            parser.value, parser.dest, parser.comp, parser.jmp
+                        )
+                        wf.write(translated + '\n')
+
+        if debug:
+            with open(output_path, 'r') as test:
+                print(test.read())
 
 
 if __name__ == '__main__':
@@ -277,6 +322,15 @@ if __name__ == '__main__':
     def test_symbol_table():
         table = SymbolManager()
         print(table.symbol_table)
+
+    def test_assembler():
+        translator = Assembler()
+        input_path = './test/Rect.asm'
+        output_path = './test/Rect.hack'
+        translator.translate(input_path, output_path, debug=True)
+
+
     # test_parser()
     # test_translator()
-    test_symbol_table()
+    # test_symbol_table()
+    test_assembler()
