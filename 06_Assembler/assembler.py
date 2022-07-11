@@ -11,7 +11,7 @@ class Parser:
         self.dest = None
         self.comp = None
         self.jmp = None
-        self.valid_line = False
+        self.is_valid_line = False
 
     def _initialize_codes(self):
         self.label = None
@@ -19,7 +19,7 @@ class Parser:
         self.dest = None
         self.comp = None
         self.jmp = None
-        self.valid_line = False
+        self.is_valid_line = False
 
     @staticmethod
     def _remove_comments(line):
@@ -41,11 +41,11 @@ class Parser:
         if len(preprocessed_line) == 0:
             return
 
-        if line[0] == '(':  # label
-            self.label = line
-        elif line[0] == '@':  # a_instruction
-            self.value = line[1:]
-            self.valid_line = True
+        if preprocessed_line[0] == '(':  # label
+            self.label = preprocessed_line
+        elif preprocessed_line[0] == '@':  # a_instruction
+            self.value = preprocessed_line[1:]
+            self.is_valid_line = True
         else:  # c_instruction
             if '=' in preprocessed_line:
                 self.dest, others = preprocessed_line.split('=')
@@ -53,11 +53,11 @@ class Parser:
                     self.comp, self.jmp = others.split(';')
                 else:
                     self.comp = others
-                self.valid_line = True
+                self.is_valid_line = True
             else:
                 if ';' in preprocessed_line:
                     self.comp, self.jmp = preprocessed_line.split(';')
-                    self.valid_line = True
+                    self.is_valid_line = True
 
 
 class Translator:
@@ -213,7 +213,7 @@ class SymbolManager:
             predefined[f'R{i}'] = str(i)
 
         self.symbol_table.update(predefined)
-        self.available_address += len(predefined)
+        self.available_address += 16
 
     def map_variable_to_available_address(self, variable):
         self.symbol_table[variable] = self.available_address
@@ -263,7 +263,7 @@ class Assembler:
                 parser.parse_line(line)
                 if parser.label:
                     symbol_manager.map_label_to_instruction_address(parser.label, self.current_address)
-                if parser.valid_line:
+                if parser.is_valid_line:
                     self.current_address += 1
 
         # second path: deal with variable, and translate one by one.
@@ -272,7 +272,7 @@ class Assembler:
             with open(output_path, 'w') as wf:
                 for line in rf:
                     parser.parse_line(line)
-                    if parser.valid_line:
+                    if parser.is_valid_line:
                         parser.label = symbol_manager.convert_symbol(parser.label)
                         parser.value = symbol_manager.convert_symbol(parser.value)
                         translated = translator.translate_parsed_line(
@@ -325,8 +325,8 @@ if __name__ == '__main__':
 
     def test_assembler():
         translator = Assembler()
-        input_path = './test/Rect.asm'
-        output_path = './test/Rect.hack'
+        input_path = './test/RectL.asm'
+        output_path = './test/RectL.hack'
         translator.translate(input_path, output_path, debug=True)
 
 
