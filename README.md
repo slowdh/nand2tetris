@@ -74,7 +74,7 @@ These gates would be basic building blocks for building even complex chips.
   - Loop is a special case of branching, with counting.
 
 
-## Computer
+## 05_Computer
 #### Computer = CPU + RAM 
 
 
@@ -95,3 +95,19 @@ These gates would be basic building blocks for building even complex chips.
   - It is basically bunch of registers.
   - When instruction and data is stored at the same RAM (Unlike Harvard architecture), it should follow fetch-execution cycle.
   - If using memory mapped I/O, some part of RAM is used for I/O devices. (like screen, mouse, keyboard)
+
+
+## 06_Assembler
+#### From low level language to machine language.
+
+- What are important things to know when building assembler?
+
+  1. File I/O. 
+     1. Read line by line and translate.
+  2. Deal with symbols 
+     1. Label for flow control, Variables for convenience.
+  3. Parse input
+     1. Ignore white spaces, comments.
+     2. Break into meaningful chunk.
+  4. Translate
+     1. Code mapping (follow rules).
