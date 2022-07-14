@@ -1,5 +1,4 @@
 
-# todo: add instruction type
 class Parser:
     """
     Parse one line of instruction into 3 different parts.
@@ -39,7 +38,6 @@ class Parser:
         return line
 
     def parse_line(self, line):
-        # can be: [a inst, c inst, label, ]
         self._reset_codes()
         line = self._preprocess_line(line)
         if len(line) == 0:
