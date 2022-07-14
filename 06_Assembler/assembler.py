@@ -1,25 +1,28 @@
 
+# todo: add instruction type
 class Parser:
     """
     Parse one line of instruction into 3 different parts.
     DEST=OPT;JMP
     And deals with white spaces and comments.
+
+    instruction_type: [comment, label, a, c]
     """
     def __init__(self):
+        self.instruction_type = None
         self.label = None
         self.value = None
         self.dest = None
         self.comp = None
         self.jmp = None
-        self.is_valid_line = False
 
-    def _initialize_codes(self):
+    def _reset_codes(self):
+        self.instruction_type = None
         self.label = None
         self.value = None
         self.dest = None
         self.comp = None
         self.jmp = None
-        self.is_valid_line = False
 
     @staticmethod
     def _remove_comments(line):
@@ -36,28 +39,31 @@ class Parser:
         return line
 
     def parse_line(self, line):
-        self._initialize_codes()
-        preprocessed_line = self._preprocess_line(line)
-        if len(preprocessed_line) == 0:
+        # can be: [a inst, c inst, label, ]
+        self._reset_codes()
+        line = self._preprocess_line(line)
+        if len(line) == 0:
+            self.instruction_type = 'comment'
             return
 
-        if preprocessed_line[0] == '(':  # label
-            self.label = preprocessed_line
-        elif preprocessed_line[0] == '@':  # a_instruction
-            self.value = preprocessed_line[1:]
-            self.is_valid_line = True
+        if line[0] == '(':  # label
+            self.instruction_type = 'label'
+            self.label = line
+        elif line[0] == '@':  # a_instruction
+            self.instruction_type = 'a'
+            self.value = line[1:]
         else:  # c_instruction
-            if '=' in preprocessed_line:
-                self.dest, others = preprocessed_line.split('=')
+            if '=' in line:
+                self.instruction_type = 'c'
+                self.dest, others = line.split('=')
                 if ';' in others:
                     self.comp, self.jmp = others.split(';')
                 else:
                     self.comp = others
-                self.is_valid_line = True
             else:
-                if ';' in preprocessed_line:
-                    self.comp, self.jmp = preprocessed_line.split(';')
-                    self.is_valid_line = True
+                if ';' in line:
+                    self.instruction_type = 'c'
+                    self.comp, self.jmp = line.split(';')
 
 
 class Translator:
@@ -172,8 +178,8 @@ class Translator:
         output += self._translate_jmp(jmp)
         return output
 
-    def translate_parsed_line(self, value, dest, comp, jmp):
-        if value:
+    def translate_parsed_line(self, instruction_type, value, dest, comp, jmp):
+        if instruction_type == 'a':
             return self.translate_a_instruction(value)
         return self.translate_c_intruction(dest, comp, jmp)
 
@@ -252,7 +258,7 @@ class Assembler:
     def _reset_current_line(self):
         self.current_address = 0
 
-    def translate(self, input_path, output_path, debug=False):
+    def translate(self, input_path, output_path):
         parser = Parser()
         symbol_manager = SymbolManager()
         translator = Translator()
@@ -261,9 +267,9 @@ class Assembler:
         with open(input_path, 'r') as rf:
             for line in rf:
                 parser.parse_line(line)
-                if parser.label:
+                if parser.instruction_type == 'label':
                     symbol_manager.map_label_to_instruction_address(parser.label, self.current_address)
-                if parser.is_valid_line:
+                if parser.instruction_type != 'comment':
                     self.current_address += 1
 
         # second path: deal with variable, and translate one by one.
@@ -272,65 +278,10 @@ class Assembler:
             with open(output_path, 'w') as wf:
                 for line in rf:
                     parser.parse_line(line)
-                    if parser.is_valid_line:
+                    if parser.instruction_type not in ('label', 'comment'):
                         parser.label = symbol_manager.convert_symbol(parser.label)
                         parser.value = symbol_manager.convert_symbol(parser.value)
                         translated = translator.translate_parsed_line(
-                            parser.value, parser.dest, parser.comp, parser.jmp
+                            parser.instruction_type, parser.value, parser.dest, parser.comp, parser.jmp
                         )
                         wf.write(translated + '\n')
-
-        if debug:
-            with open(output_path, 'r') as test:
-                print(test.read())
-
-
-if __name__ == '__main__':
-    def test_parser():
-        parser = Parser()
-        with open('./test/Add.asm', 'r') as f:
-            for line in f:
-                print(line, end='')
-                parser.parse_line(line)
-                if parser.value is not None:
-                    print(f"===Address value: {parser.value}")
-                else:
-                    if parser.dest is None and parser.comp is None and parser.jmp is None:
-                        continue
-                    else:
-                        print(f"===DEST: {parser.dest} COMP:{parser.comp} JMP:{parser.jmp}")
-
-
-    def test_translator():
-        parser = Parser()
-        translator = Translator()
-
-        with open('./test/Add.asm', 'r') as f:
-            for line in f:
-                print(line, end='')
-                parser.parse_line(line)
-                print(f"===DEST: {parser.dest} COMP: {parser.comp} JMP:{parser.jmp}")
-                if parser.value is not None:
-                    print(translator.translate_a_instruction(parser.value))
-                else:
-                    if parser.dest is None and parser.comp is None and parser.jmp is None:
-                        continue
-                    else:
-                        print(translator.translate_c_intruction(parser.dest, parser.comp, parser.jmp))
-
-
-    def test_symbol_table():
-        table = SymbolManager()
-        print(table.symbol_table)
-
-    def test_assembler():
-        translator = Assembler()
-        input_path = './test/RectL.asm'
-        output_path = './test/RectL.hack'
-        translator.translate(input_path, output_path, debug=True)
-
-
-    # test_parser()
-    # test_translator()
-    # test_symbol_table()
-    test_assembler()
