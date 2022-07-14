@@ -111,3 +111,28 @@ These gates would be basic building blocks for building even complex chips.
      2. Break into meaningful chunk.
   4. Translate
      1. Code mapping (follow rules).
+
+
+## 07_VM_Translator
+#### Virtual Machine Language is a middle ground in between high level language and machine language.
+
+- What is Virtual Machine?
+  - Virtual Machine is a virtual computer, which has own systems of RAM and CPU Instruction set.
+  - Why it is need then?
+    - Actual CPUs (different computer) can have various instruction set according to manufacturing company / generation.
+    - So, say we have some abstraction of individual computers, we can deal with high level codes more effectively when compiling.
+  - It might be cool if abstraction level is not so low that we don't have to deal with nitty-gritty details and not so high that actual implementation part isn't too much of a work.
+  - Here, we regard (efficient middle ground) VM as Stack Machine, which abstracts every possible operation into series of Stack operations.
+
+
+- Stack Machine as a VM.
+  - Operations are done on top of Stack.
+    - [add, sub, neg, eq, gt, lt, and, or, not]
+    - SP (Stack Pointer) takes care of operation sequence.
+    
+  - Accessing memory is done with Push / Pop commands to Stack.
+    - Virtual memory consists of 8 segments.
+      - local, argument, this, that, constant, static, temp, pointer.
+      - Why divided like this?
+        - local, static are for variable scope. (i.e. local, global variable)
+    
