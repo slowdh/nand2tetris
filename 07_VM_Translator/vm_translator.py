@@ -31,6 +31,9 @@ class Parser:
 
 
 class Translator:
+    def __init__(self):
+        self.label_counter = 0
+
     def translate_arithmetic_op(self, operation):
         if operation in ('not', 'neg'):  # one value operation
             assembly_output = [
@@ -54,18 +57,48 @@ class Translator:
                 assembly_output.append('D=D+A')
             elif operation == 'sub':
                 assembly_output.append('D=D-A')
-            elif operation == 'eq':
-                pass
-            elif operation == 'gt':
-                pass
-            elif operation == 'lt':
-                pass
             elif operation == 'and':
                 assembly_output.append('D=D&A')
             elif operation == 'or':
                 assembly_output.append('D=D|A')
             else:
-                raise NotImplementedError(f"operation {operation} is not implemented.")
+                if operation == 'eq':
+                    asm_comp = [
+                        'D=D-A',
+                        f'@EQ_{self.label_counter}',
+                        'D;JEQ',
+                        f'@END_{self.label_counter}',
+                        '0;JMP',
+                        f'(EQ_{self.label_counter})',
+                        'D=1',
+                        f'(END_{self.label_counter})'
+                    ]
+                elif operation == 'gt':
+                    asm_comp = [
+                        'D=D-A',
+                        f'@GT_{self.label_counter}',
+                        'D;JGT',
+                        f'@END_{self.label_counter}',
+                        '0;JMP',
+                        f'(GT_{self.label_counter})',
+                        'D=1',
+                        f'(END_{self.label_counter})'
+                    ]
+                elif operation == 'lt':
+                    asm_comp = [
+                        'D=D-A',
+                        f'@LT_{self.label_counter}',
+                        'D;JLT',
+                        f'@END_{self.label_counter}',
+                        '0;JLT',
+                        f'(LT_{self.label_counter})',
+                        'D=1',
+                        f'(END_{self.label_counter})'
+                    ]
+                else:
+                    raise NotImplementedError(f"operation {operation} is not implemented.")
+                assembly_output += asm_comp
+                self.label_counter += 1
 
             assembly_output += [
                 '@SP',
@@ -148,7 +181,7 @@ class VMtranslator:
 
 
 if __name__ == '__main__':
-    path = './test/StaticTest.vm'
+    path = './test/StackTest.vm'
 
     vm_translator = VMtranslator()
     vm_translator.translate(path, debug=True)
