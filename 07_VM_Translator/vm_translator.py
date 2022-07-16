@@ -31,8 +31,15 @@ class Parser:
 
 
 class Translator:
-    def __init__(self):
+    def __init__(self, file_name):
+        self.file_name = file_name
         self.label_counter = 0
+        self.segment_symbol_table = {
+            'local': 'LCL',
+            'argument': 'ARG',
+            'this': 'THIS',
+            'that': 'THAT'
+        }
 
     def translate_arithmetic_op(self, operation):
         if operation in ('not', 'neg'):  # one value operation
@@ -107,22 +114,44 @@ class Translator:
             ]
         return '\n'.join(assembly_output)
 
-    @staticmethod
-    def translate_memory_op(operation, memory_segment, address):
+    def translate_memory_op(self, operation, memory_segment, address):
         if operation == 'push':
-            if memory_segment == 'constant':
+            if memory_segment in self.segment_symbol_table:
+                segment = self.segment_symbol_table[memory_segment]
+                asm_data = [
+                    f'@{address}',
+                    'D=A',
+                    f'@{segment}',
+                    'A=D+M',
+                    'D=M'
+                ]
+            elif memory_segment == 'constant':
                 asm_data = [
                     f'@{address}',
                     'D=A'
                 ]
-            else:
+            elif memory_segment == 'static':
                 asm_data = [
-                    f'@{address}',
-                    'D=A',
-                    f'@{memory_segment}'
-                    'A=D+M',
+                    f'@{self.file_name}.{address}',
                     'D=M'
                 ]
+            elif memory_segment == 'temp':
+                asm_data = [
+                    f'@{5 + int(address)}',
+                    'D=M'
+                ]
+            elif memory_segment == 'pointer':
+                if address == 0:
+                    symbol = 'THIS'
+                else:  # == 1
+                    symbol = 'THAT'
+
+                asm_data = [
+                    f'@{symbol}',
+                    'D=M'
+                ]
+            else:
+                raise NotImplementedError(f"memory segment [{memory_segment}] is not defined in PUSH operation.")
 
             asm_push = [
                 '@SP',
@@ -132,25 +161,48 @@ class Translator:
                 'M=M+1'
             ]
             asm_output = '\n'.join(asm_data + asm_push)
+
         else:
             assert operation == 'pop'
             assert memory_segment != 'constant'
-            asm_pop = [
+            asm_stack = [
                 '@SP',
-                'AM=M-1',
-                f'@{memory_segment}',
-                'D=M',
-                f'@{address}',
-                'D=D+A',
-                f'@TEMP',
-                'M=D',
-                '@SP',
-                'D=M',
-                '@TEMP',
-                'A=M',
-                'A=D'
+                'M=M-1'
             ]
-            asm_output = '\n'.join(asm_pop)
+
+            # set address to R13
+            if memory_segment in self.segment_symbol_table:
+                segment = self.segment_symbol_table[memory_segment]
+                asm_address = [
+                    f'@{address}',
+                    'D=A',
+                    f'@{segment}',
+                    'A=D+M',
+                    'D=M',
+                    '@R13',
+                    'M=D'
+                ]
+            elif memory_segment == 'static':
+                asm_address = [f'@{self.file_name}.{address}']
+            elif memory_segment == 'temp':
+                asm_address = [f'@{5 + int(address)}']
+            elif memory_segment == 'pointer':
+                if address == 0:
+                    symbol = 'THIS'
+                else:  # == 1
+                    symbol = 'THAT'
+                asm_address = [f'@{symbol}']
+            else:
+                raise NotImplementedError(f"memory segment [{memory_segment}] is not defined in POP operation.")
+
+            asm_save = [
+                '@SP',
+                'D=M',
+                '@R13',
+                'A=M',
+                'M=D'
+            ]
+            asm_output = '\n'.join(asm_stack + asm_address + asm_save)
         return asm_output
 
 
@@ -161,7 +213,7 @@ class VMtranslator:
     def translate(self, file_path, debug=False):
         self.file_name = file_path.split('/')[-1].split('.')[0]
         parser = Parser()
-        translator = Translator()
+        translator = Translator(self.file_name)
         save_path = file_path.replace('.vm', '.asm')
         with open(file_path, 'r') as rf:
             with open(save_path, 'w') as wf:
@@ -181,7 +233,7 @@ class VMtranslator:
 
 
 if __name__ == '__main__':
-    path = './test/StackTest.vm'
+    path = './test/BasicTest.vm'
 
     vm_translator = VMtranslator()
     vm_translator.translate(path, debug=True)
