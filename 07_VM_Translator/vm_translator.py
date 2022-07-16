@@ -87,6 +87,16 @@ class Translator:
         self._write('A=M')
         self._write('M=D')
 
+    def _op_a_get_segment_address(self, segment_symbol, address):
+        self._write(f'@{address}')
+        self._write('D=A')
+        self._write(f'@{segment_symbol}')
+        self._write('A=D+M')
+
+    def _op_d_set_value(self, address):
+        self._write(f'@{address}')
+        self._write('D=A')
+
     def translate_arithmetic_op(self, operation):
         if operation in ('not', 'neg'):  # one value operation
             if operation == 'not':
@@ -127,94 +137,63 @@ class Translator:
 
     def translate_memory_op(self, operation, memory_segment, address):
         if operation == 'push':
+            # set d as value to insert.
             if memory_segment in self.segment_symbol_table:
-                segment = self.segment_symbol_table[memory_segment]
-                asm_data = [
-                    f'@{address}',
-                    'D=A',
-                    f'@{segment}',
-                    'A=D+M',
-                    'D=M'
-                ]
+                segment_symbol = self.segment_symbol_table[memory_segment]
+                self._op_a_get_segment_address(segment_symbol, address)
+                self._write('D=M')
             elif memory_segment == 'constant':
-                asm_data = [
-                    f'@{address}',
-                    'D=A'
-                ]
+                self._op_d_set_value(address)
             elif memory_segment == 'static':
-                asm_data = [
-                    f'@{self.file_name}.{address}',
-                    'D=M'
-                ]
+                self._write(f'@{self.file_name}.{address}')
+                self._write('D=M')
             elif memory_segment == 'temp':
-                asm_data = [
-                    f'@{5 + int(address)}',
-                    'D=M'
-                ]
+                self._write(f'@{5 + int(address)}')
+                self._write('D=M')
             elif memory_segment == 'pointer':
-                if address == 0:
-                    symbol = 'THIS'
-                else:  # == 1
-                    symbol = 'THAT'
-
-                asm_data = [
-                    f'@{symbol}',
-                    'D=M'
-                ]
+                symbol = 'THIS' if address == 0 else 'THAT'
+                self._write(f'@{symbol}')
+                self._write('D=M')
             else:
                 raise NotImplementedError(f"memory segment [{memory_segment}] is not defined in PUSH operation.")
 
-            asm_push = [
-                '@SP',
-                'A=M',
-                'M=D',
-                '@SP',
-                'M=M+1'
-            ]
-            asm_output = '\n'.join(asm_data + asm_push)
-
+            # push to stack
+            self._op_write_d_to_current_stack_pointer()
+            self._op_m_increment_stack_pointer()
         else:
             assert operation == 'pop'
             assert memory_segment != 'constant'
-            asm_stack = [
-                '@SP',
-                'M=M-1'
-            ]
+            self._op_m_decrement_stack_pointer()
+            self._op_m_get_current_stack_value()
+            self._write('D=M')
 
             # set address to R13
             if memory_segment in self.segment_symbol_table:
-                segment = self.segment_symbol_table[memory_segment]
-                asm_address = [
-                    f'@{address}',
-                    'D=A',
-                    f'@{segment}',
-                    'A=D+M',
-                    'D=M',
-                    '@R13',
-                    'M=D'
-                ]
+                segment_symbol = self.segment_symbol_table[memory_segment]
+                self._op_a_get_segment_address(segment_symbol, address)
+                self._write('D=M')
+                self._write('@R13')
+                self._write('M=D')
+
+                # set top stack value to register
+                self._op_m_get_current_stack_value()
+                self._write('D=M')
+                self._write('@R13')
+                self._write('A=M')
+                self._write('M=D')
             elif memory_segment == 'static':
-                asm_address = [f'@{self.file_name}.{address}']
+                self._write(f'@{self.file_name}.{address}')
+                self._write(f'M=D')
             elif memory_segment == 'temp':
-                asm_address = [f'@{5 + int(address)}']
+                self._write(f'@{5 + int(address)}')
+                self._write(f'M=D')
             elif memory_segment == 'pointer':
-                if address == 0:
-                    symbol = 'THIS'
-                else:  # == 1
-                    symbol = 'THAT'
-                asm_address = [f'@{symbol}']
+                symbol = 'THIS' if address == 0 else 'THAT'
+                self._write(f'@{symbol}')
+                self._write(f'M=D')
             else:
                 raise NotImplementedError(f"memory segment [{memory_segment}] is not defined in POP operation.")
-
-            asm_save = [
-                '@SP',
-                'D=M',
-                '@R13',
-                'A=M',
-                'M=D'
-            ]
-            asm_output = '\n'.join(asm_stack + asm_address + asm_save)
-        return asm_output
+        return self.asm_output
 
 
 class VMtranslator:
@@ -236,7 +215,7 @@ class VMtranslator:
                         asm_line = translator.translate_memory_op(parser.op_code, parser.memory_segment, parser.address)
                     else:  # == 'comment'
                         continue
-                    wf.write(asm_line + '\n')
+                wf.write(asm_line + '\n')
 
         if debug:
             with open(save_path, 'r') as f:
@@ -244,7 +223,7 @@ class VMtranslator:
 
 
 if __name__ == '__main__':
-    path = './test/BasicTest.vm'
+    path = './test/StaticTest.vm'
 
     vm_translator = VMtranslator()
     vm_translator.translate(path, debug=True)
