@@ -40,79 +40,90 @@ class Translator:
             'this': 'THIS',
             'that': 'THAT'
         }
+        self.asm_output = ''
+
+    def _increment_label_counter(self):
+        self.label_counter += 1
+
+    def _write(self, line):
+        self.asm_output += line + '\n'
+
+    def _op_m_decrement_stack_pointer(self):
+        self._write('@SP')
+        self._write('M=M-1')
+
+    def _op_m_increment_stack_pointer(self):
+        self._write('@SP')
+        self._write('M=M+1')
+
+    def _op_m_get_current_stack_value(self):
+        self._write('@SP')
+        self._write('A=M')
+
+    def _op_d_write_comp_branch(self, comp_type):
+        assert comp_type in ('EQ', 'GT', 'LT')
+
+        # compare and branching
+        self._write('D=D-A')
+        self._write(f'@{comp_type}_{self.label_counter}')
+        self._write(f'D;J{comp_type}')
+
+        # set D=false
+        self._write('@0')
+        self._write('D=A')
+        self._write(f'END_{comp_type}_{self.label_counter}')
+        self._write('0;JMP')
+
+        # set D=true
+        self._write(f'({comp_type}_{self.label_counter}')
+        self._write('@-1')
+        self._write('D=A')
+        self._write(f'(END_{comp_type}_{self.label_counter})')
+
+        self._increment_label_counter()
+
+    def _op_write_d_to_current_stack_pointer(self):
+        self._write('@SP')
+        self._write('A=M')
+        self._write('M=D')
 
     def translate_arithmetic_op(self, operation):
         if operation in ('not', 'neg'):  # one value operation
-            assembly_output = [
-                '@SP',
-                'A=M-1'
-            ]
             if operation == 'not':
-                assembly_output.append('M=!M')
-            else:  # operation == 'neg'
-                assembly_output.append('M=-M')
+                self._op_m_get_current_stack_value()
+                self._write('M=!M')
+            else:  # == 'neg'
+                self._op_m_get_current_stack_value()
+                self._write('M=-M')
         else:  # two value operation
-            assembly_output = [
-                '@SP',
-                'M=M-1',
-                'A=M-1',
-                'D=M',
-                '@SP',
-                'A=M'
-            ]
-            if operation == 'add':
-                assembly_output.append('D=D+A')
-            elif operation == 'sub':
-                assembly_output.append('D=D-A')
-            elif operation == 'and':
-                assembly_output.append('D=D&A')
-            elif operation == 'or':
-                assembly_output.append('D=D|A')
-            else:
-                if operation == 'eq':
-                    asm_comp = [
-                        'D=D-A',
-                        f'@EQ_{self.label_counter}',
-                        'D;JEQ',
-                        f'@END_{self.label_counter}',
-                        '0;JMP',
-                        f'(EQ_{self.label_counter})',
-                        'D=1',
-                        f'(END_{self.label_counter})'
-                    ]
-                elif operation == 'gt':
-                    asm_comp = [
-                        'D=D-A',
-                        f'@GT_{self.label_counter}',
-                        'D;JGT',
-                        f'@END_{self.label_counter}',
-                        '0;JMP',
-                        f'(GT_{self.label_counter})',
-                        'D=1',
-                        f'(END_{self.label_counter})'
-                    ]
-                elif operation == 'lt':
-                    asm_comp = [
-                        'D=D-A',
-                        f'@LT_{self.label_counter}',
-                        'D;JLT',
-                        f'@END_{self.label_counter}',
-                        '0;JLT',
-                        f'(LT_{self.label_counter})',
-                        'D=1',
-                        f'(END_{self.label_counter})'
-                    ]
-                else:
-                    raise NotImplementedError(f"operation {operation} is not implemented.")
-                assembly_output += asm_comp
-                self.label_counter += 1
+            # set target values into D, A
+            self._op_m_decrement_stack_pointer()
+            self._op_m_get_current_stack_value()
+            self._write('D=M')
+            self._op_m_decrement_stack_pointer()
+            self._op_m_get_current_stack_value()
+            self._write('A=M')
 
-            assembly_output += [
-                '@SP',
-                'A=M-1',
-                'M=D'
-            ]
-        return '\n'.join(assembly_output)
+            if operation == 'add':
+                self._write('D=D+A')
+            elif operation == 'sub':
+                self._write('D=D-A')
+            elif operation == 'and':
+                self._write('D=D&A')
+            elif operation == 'or':
+                self._write('D=D|A')
+            elif operation == 'eq':
+                self._op_d_write_comp_branch('EQ')
+            elif operation == 'gt':
+                self._op_d_write_comp_branch('GT')
+            elif operation == 'lt':
+                self._op_d_write_comp_branch('LT')
+            else:
+                raise NotImplementedError(f"operation {operation} is not implemented.")
+
+            self._op_write_d_to_current_stack_pointer()
+            self._op_m_increment_stack_pointer()
+        return self.asm_output
 
     def translate_memory_op(self, operation, memory_segment, address):
         if operation == 'push':
