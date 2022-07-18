@@ -69,8 +69,8 @@ class Translator:
     def _increment_label_counter(self):
         self.label_counter += 1
 
-    def _write(self, line):
-        if '_' in line:
+    def _write(self, line, is_label=False):
+        if is_label:
             indent = ''
         else:
             indent = '    '
@@ -103,10 +103,10 @@ class Translator:
         self._write('0;JMP')
 
         # set D=true
-        self._write(f'({comp_type}_{self.label_counter})')
+        self._write(f'({comp_type}_{self.label_counter})', is_label=True)
         self._write('@-1')
         self._write('D=A')
-        self._write(f'(END_{comp_type}_{self.label_counter})')
+        self._write(f'(END_{comp_type}_{self.label_counter})', is_label=True)
 
         self._increment_label_counter()
 
@@ -224,7 +224,37 @@ class Translator:
         return self.asm_output
 
     def translate_branching_op(self, operation, label):
-        pass
+        if operation == 'label':
+            self._write(f'({label})', is_label=True)
+        elif operation == 'goto':
+            self._write(f'@{label}')
+            self._write(f'0;JMP')
+        elif operation == 'if-goto':
+            self._op_m_decrement_stack_pointer()
+            self._op_m_get_current_stack_value()
+            self._write('D=M+1')
+            self._write(f'@{label}')
+            self._write('D;JEQ')
+        else:
+            raise NotImplementedError(f'{operation} is not defined on branching operation')
+        return self.asm_output
+
+    def translate_line(self, parser):
+        if parser.operation_type == 'compute':
+            asm_line = self.translate_arithmetic_op(parser.op_code)
+        elif parser.operation_type == 'memory':
+            asm_line = self.translate_memory_op(
+                parser.op_code, parser.memory_segment, parser.address
+            )
+        elif parser.operation_type == 'branching':
+            asm_line = self.translate_branching_op(parser.op_code, parser.label)
+        elif parser.operation_type == 'call':
+            pass
+        elif parser.operation_type == 'return':
+            pass
+        else:  # == 'comment'
+            asm_line = None
+        return asm_line
 
     def set_file_name(self, file_name):
         self.file_name = file_name
@@ -263,24 +293,11 @@ class VMtranslator:
                 with open(save_path, write_mode) as wf:
                     for line in rf:
                         parser.parse_line(line)
-                        if add_annotation and parser.op_code:
-                            wf.write(f'\n// {parser.line}\n')
-
-                        if parser.operation_type == 'compute':
-                            asm_line = translator.translate_arithmetic_op(parser.op_code)
-                        elif parser.operation_type == 'memory':
-                            asm_line = translator.translate_memory_op(
-                                parser.op_code, parser.memory_segment, parser.address
-                            )
-                        elif parser.operation_type == 'branching':
-                            pass
-                        elif parser.operation_type == 'call':
-                            pass
-                        elif parser.operation_type == 'return':
-                            pass
-                        else:  # == 'comment'
-                            continue
-                        wf.write(asm_line)
+                        asm_line = translator.translate_line(parser)
+                        if asm_line:
+                            if add_annotation and parser.op_code:
+                                wf.write(f'// {parser.line}\n')
+                            wf.write(asm_line)
                         translator.clear_output()
 
         # print output on console
@@ -289,6 +306,6 @@ class VMtranslator:
 
 
 if __name__ == '__main__':
-    test_dir_or_path = './test/StackTest.vm'
+    test_dir_or_path = '../../projects/08/ProgramFlow/BasicLoop/BasicLoop.vm'
     vm_translator = VMtranslator(test_dir_or_path)
     vm_translator.translate(add_annotation=True)
