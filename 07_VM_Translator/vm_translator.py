@@ -1,13 +1,21 @@
+import os
+from glob import glob
+
 
 class Parser:
     """
-    operation_type: ['compute', 'memory']
-        - compute: arithmetic, logic operations
-        - memory: push, pop operations
+    operation_type: ['compute', 'memory', 'branching', 'call', 'return']
+        - compute: arithmetic, logic operations [add, sub, and, or, eq, gt, lt]
+        - memory: push, pop operations [push segment idx, pop segment, idx]
+        - branching: [label x, goto x, if-goto x]
+        - call: function call [call Cls.method args]
+        - return: [return]
     """
     def __init__(self):
+        self.line = None
         self.operation_type = None
         self.op_code = None
+        self.label = None
         self.memory_segment = None
         self.address = None
 
@@ -17,22 +25,38 @@ class Parser:
         return line.strip()
 
     def parse_line(self, line):
-        line = self._preprocess_line(line)
-        op_arr = line.split()
+        self.line = self._preprocess_line(line)
+        op_arr = self.line.split()
+
         if len(op_arr) == 0:
             self.operation_type = None
-        elif len(op_arr) == 1:  # arithmetic, logic operation
-            self.operation_type = 'compute'
-            self.op_code = op_arr[0]
-        else:  # push, pop memory operation
-            assert len(op_arr) == 3
-            self.operation_type = 'memory'
-            self.op_code, self.memory_segment, self.address = op_arr
+        elif len(op_arr) == 1:
+            # arithmetic, logic operations: [add, sub, and, or, eq, gt, lt]
+            # return: [return]
+            op_code = op_arr[0]
+            if op_code == 'return':
+                self.operation_type = self.op_code = 'return'
+            else:
+                self.operation_type = 'compute'
+                self.op_code = op_code
+        elif len(op_arr) == 2:  # branching: [label x, goto x, if-goto x]
+            self.operation_type = 'branching'
+            self.op_code, self.label = op_arr
+        else:
+            # push, pop memory operation: [push segment idx, pop segment, idx]
+            # function call operation: [call Cls.method args]
+            op_code = op_arr[0]
+            if op_code in ('push', 'pop'):
+                self.operation_type = 'memory'
+                self.op_code, self.memory_segment, self.address = op_arr
+            else:
+                assert op_code == 'call'
+                pass
 
 
 class Translator:
-    def __init__(self, file_name):
-        self.file_name = file_name
+    def __init__(self):
+        self.file_name = None
         self.label_counter = 0
         self.segment_symbol_table = {
             'local': 'LCL',
@@ -46,7 +70,11 @@ class Translator:
         self.label_counter += 1
 
     def _write(self, line):
-        self.asm_output += line + '\n'
+        if '_' in line:
+            indent = ''
+        else:
+            indent = '    '
+        self.asm_output += indent + line + '\n'
 
     def _op_m_decrement_stack_pointer(self):
         self._write('@SP')
@@ -71,11 +99,11 @@ class Translator:
         # set D=false
         self._write('@0')
         self._write('D=A')
-        self._write(f'END_{comp_type}_{self.label_counter}')
+        self._write(f'@END_{comp_type}_{self.label_counter}')
         self._write('0;JMP')
 
         # set D=true
-        self._write(f'({comp_type}_{self.label_counter}')
+        self._write(f'({comp_type}_{self.label_counter})')
         self._write('@-1')
         self._write('D=A')
         self._write(f'(END_{comp_type}_{self.label_counter})')
@@ -195,35 +223,72 @@ class Translator:
                 raise NotImplementedError(f"memory segment [{memory_segment}] is not defined in POP operation.")
         return self.asm_output
 
+    def translate_branching_op(self, operation, label):
+        pass
+
+    def set_file_name(self, file_name):
+        self.file_name = file_name
+
+    def clear_output(self):
+        self.asm_output = ''
+
 
 class VMtranslator:
-    def __init__(self):
-        self.file_name = None
+    def __init__(self, dir_or_path):
+        self.file_paths = self._get_file_paths(dir_or_path)
 
-    def translate(self, file_path, debug=False):
-        self.file_name = file_path.split('/')[-1].split('.')[0]
+    @staticmethod
+    def _get_file_paths(dir_or_path):
+        if os.path.isdir(dir_or_path):
+            current_dir = os.path.join(dir_or_path, '*.vm')
+            paths = glob(current_dir)
+        else:
+            paths = [dir_or_path]
+        return paths
+
+    @staticmethod
+    def _get_file_name(file_path):
+        return file_path.split('/')[-1].split('.')[0]
+
+    def translate(self, add_annotation=False):
+        save_path = self.file_paths[0].replace('.vm', '.asm')
+
         parser = Parser()
-        translator = Translator(self.file_name)
-        save_path = file_path.replace('.vm', '.asm')
-        with open(file_path, 'r') as rf:
-            with open(save_path, 'w') as wf:
-                for line in rf:
-                    parser.parse_line(line)
-                    if parser.operation_type == 'compute':
-                        asm_line = translator.translate_arithmetic_op(parser.op_code)
-                    elif parser.operation_type == 'memory':
-                        asm_line = translator.translate_memory_op(parser.op_code, parser.memory_segment, parser.address)
-                    else:  # == 'comment'
-                        continue
-                wf.write(asm_line + '\n')
+        translator = Translator()
+        for idx, path in enumerate(self.file_paths):
+            file_name = self._get_file_name(path)
+            translator.file_name = file_name
+            with open(path, 'r') as rf:
+                write_mode = 'w' if idx == 0 else 'a'
+                with open(save_path, write_mode) as wf:
+                    for line in rf:
+                        parser.parse_line(line)
+                        if add_annotation and parser.op_code:
+                            wf.write(f'\n// {parser.line}\n')
 
-        if debug:
-            with open(save_path, 'r') as f:
-                print(f.read())
+                        if parser.operation_type == 'compute':
+                            asm_line = translator.translate_arithmetic_op(parser.op_code)
+                        elif parser.operation_type == 'memory':
+                            asm_line = translator.translate_memory_op(
+                                parser.op_code, parser.memory_segment, parser.address
+                            )
+                        elif parser.operation_type == 'branching':
+                            pass
+                        elif parser.operation_type == 'call':
+                            pass
+                        elif parser.operation_type == 'return':
+                            pass
+                        else:  # == 'comment'
+                            continue
+                        wf.write(asm_line)
+                        translator.clear_output()
+
+        # print output on console
+        with open(save_path, 'r') as f:
+            print(f.read())
 
 
 if __name__ == '__main__':
-    path = './test/StaticTest.vm'
-
-    vm_translator = VMtranslator()
-    vm_translator.translate(path, debug=True)
+    test_dir_or_path = './test/StackTest.vm'
+    vm_translator = VMtranslator(test_dir_or_path)
+    vm_translator.translate(add_annotation=True)
