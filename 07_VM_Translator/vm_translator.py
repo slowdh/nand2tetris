@@ -18,6 +18,8 @@ class Parser:
         self.label = None
         self.memory_segment = None
         self.address = None
+        self.function_name = None
+        self.n_args = None
 
     @staticmethod
     def _preprocess_line(line):
@@ -50,9 +52,8 @@ class Parser:
                 self.operation_type = 'memory'
                 self.op_code, self.memory_segment, self.address = op_arr
             else:
-                assert op_code == 'call'
-                pass
-
+                self.operation_type = 'call'
+                self.op_code, self.function_name, self.n_args = op_arr
 
 class Translator:
     def __init__(self):
@@ -115,6 +116,10 @@ class Translator:
         self._write('A=M')
         self._write('M=D')
 
+    def _op_write_d_to_symbol_pointer(self, symbol):
+        self._write(f'@{symbol}')
+        self._write('M=D')
+
     def _op_a_get_segment_address(self, segment_symbol, address):
         self._write(f'@{address}')
         self._write('D=A')
@@ -125,7 +130,53 @@ class Translator:
         self._write(f'@{address}')
         self._write('D=A')
 
-    def translate_arithmetic_op(self, operation):
+    def _save_pointer(self, pointer):
+        # push onto global stack: [LCL, ARG, THIS, THAT]
+        self._write(f'@{pointer}')
+        self._write(f'D=M')
+        self._op_write_d_to_current_stack_pointer()
+        self._op_m_increment_stack_pointer()
+
+    def _save_pointers(self):
+        for p in ('LCL', 'ARG', 'THIS', 'THAT'):
+            self._save_pointer(p)
+
+    def _set_arg_pointer(self, n_args):
+        # set ARG (SP - 4 - n_args)
+        self._write('@4')
+        self._write('D=A')
+        self._write(f'@{n_args}')
+        self._write('D=D+A')
+
+        self._write('@SP')
+        self._write('D=M-D')
+
+        self._op_write_d_to_symbol_pointer('ARG')
+
+    def _set_lcl_pointer(self):
+        self._write('@SP')
+        self._write('D=M')
+        self._write('@LCL')
+        self._write('M=D')
+
+    def _jump_to_label(self, label):
+        self._write(f'@{label}')
+        self._write('0;JMP')
+
+    def _translate_call(self, fn_name, n_args):
+        self._save_pointers()
+        self._set_arg_pointer(n_args)
+        self._set_lcl_pointer()
+        self._jump_to_label(fn_name)
+
+        return_label = f'{fn_name}.{self.label_counter}'
+        self._increment_label_counter()
+        return return_label
+
+    def _translate_return(self, return_label):
+        pass
+
+    def _translate_arithmetic_op(self, operation):
         if operation in ('not', 'neg'):  # one value operation
             if operation == 'not':
                 self._op_m_get_current_stack_value()
@@ -163,7 +214,7 @@ class Translator:
             self._op_m_increment_stack_pointer()
         return self.asm_output
 
-    def translate_memory_op(self, operation, memory_segment, address):
+    def _translate_memory_op(self, operation, memory_segment, address):
         if operation == 'push':
             # set d as value to insert.
             if memory_segment in self.segment_symbol_table:
@@ -223,7 +274,7 @@ class Translator:
                 raise NotImplementedError(f"memory segment [{memory_segment}] is not defined in POP operation.")
         return self.asm_output
 
-    def translate_branching_op(self, operation, label):
+    def _translate_branching_op(self, operation, label):
         if operation == 'label':
             self._write(f'({label})', is_label=True)
         elif operation == 'goto':
@@ -239,15 +290,26 @@ class Translator:
             raise NotImplementedError(f'{operation} is not defined on branching operation')
         return self.asm_output
 
+    def _translate_function(self):
+        """
+        - call function
+            - save return address
+            - save pointers: [LCL, ARG, THIS, THAT]
+            - jump to function declaration
+        - run function's sub routine code
+        - return
+        """
+        pass
+
     def translate_line(self, parser):
         if parser.operation_type == 'compute':
-            asm_line = self.translate_arithmetic_op(parser.op_code)
+            asm_line = self._translate_arithmetic_op(parser.op_code)
         elif parser.operation_type == 'memory':
-            asm_line = self.translate_memory_op(
+            asm_line = self._translate_memory_op(
                 parser.op_code, parser.memory_segment, parser.address
             )
         elif parser.operation_type == 'branching':
-            asm_line = self.translate_branching_op(parser.op_code, parser.label)
+            asm_line = self._translate_branching_op(parser.op_code, parser.label)
         elif parser.operation_type == 'call':
             pass
         elif parser.operation_type == 'return':
