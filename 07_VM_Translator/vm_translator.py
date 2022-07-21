@@ -20,6 +20,7 @@ class Parser:
         self.address = None
         self.function_name = None
         self.n_args = None
+        self.n_lcls = None
 
     @staticmethod
     def _preprocess_line(line):
@@ -51,9 +52,12 @@ class Parser:
             if op_code in ('push', 'pop'):
                 self.operation_type = 'memory'
                 self.op_code, self.memory_segment, self.address = op_arr
-            else:
-                self.operation_type = 'call'
+            elif self.operation_type == 'call':
                 self.op_code, self.function_name, self.n_args = op_arr
+            elif self.operation_type == 'function':
+                self.op_code, self.function_name, self.n_lcls = op_arr
+            else:
+                raise NotImplementedError
 
 class Translator:
     def __init__(self):
@@ -65,7 +69,12 @@ class Translator:
             'this': 'THIS',
             'that': 'THAT'
         }
+        self.is_call = False
+        self.return_label = None
         self.asm_output = ''
+
+    def clear_return_label(self):
+        self.return_label = None
 
     def _increment_label_counter(self):
         self.label_counter += 1
@@ -130,6 +139,12 @@ class Translator:
         self._write(f'@{address}')
         self._write('D=A')
 
+    def _op_m_get_symbol_n_prev_value(self, symbol, n):
+        self._write(f'@{n}')
+        self._write('D=A')
+        self._write(f'@{symbol}')
+        self._write('A=M-D')
+
     def _save_pointer(self, pointer):
         # push onto global stack: [LCL, ARG, THIS, THAT]
         self._write(f'@{pointer}')
@@ -163,18 +178,60 @@ class Translator:
         self._write(f'@{label}')
         self._write('0;JMP')
 
+    def _set_return_value(self):
+        self._op_m_decrement_stack_pointer()
+        self._op_m_get_current_stack_value()
+        self._write('D=M')
+        self._write('@ARG')
+        self._write('A=M')
+        self._write('M=D')
+
+    def _reset_stack_pointer(self):
+        self._write('@ARG')
+        self._write('D=M+1')
+        self._write('@SP')
+        self._write('M=D')
+
+    def _reset_pointer(self, symbol):
+        # push onto global stack: [LCL, ARG, THIS, THAT]
+        if symbol == 'THAT':
+            n_prev = 1
+        elif symbol == 'THIS':
+            n_prev = 2
+        elif symbol == 'ARG':
+            n_prev = 3
+        elif symbol == 'LCL':
+            n_prev = 4
+        else:
+            raise NotImplementedError
+
+        self._op_m_get_symbol_n_prev_value(symbol, n_prev)
+        self._write('D=M')
+        self._write(f'@{symbol}')
+        self._write('M=D')
+
     def _translate_call(self, fn_name, n_args):
         self._save_pointers()
         self._set_arg_pointer(n_args)
         self._set_lcl_pointer()
         self._jump_to_label(fn_name)
 
-        return_label = f'{fn_name}.{self.label_counter}'
+        self.return_label = f'{fn_name}.{self.label_counter}'
         self._increment_label_counter()
-        return return_label
+
+    def _translate_function_definition(self, fn_name, n_lcls):
+        self.is_call = False
+        self.clear_return_label()
+        self._write(f'({fn_name})', is_label=True)
 
     def _translate_return(self, return_label):
-        pass
+        # return value should be at top of the stack.
+        self._set_return_value()
+        self._reset_stack_pointer()
+        for p in ('LCL', 'ARG', 'THIS', 'THAT'):
+            self._reset_pointer(p)
+        if self.return_label is not None:
+            self._jump_to_label(return_label)
 
     def _translate_arithmetic_op(self, operation):
         if operation in ('not', 'neg'):  # one value operation
@@ -290,7 +347,7 @@ class Translator:
             raise NotImplementedError(f'{operation} is not defined on branching operation')
         return self.asm_output
 
-    def _translate_function(self):
+    def _translate_function_call(self, op_code, function_name, n_args):
         """
         - call function
             - save return address
@@ -299,7 +356,8 @@ class Translator:
         - run function's sub routine code
         - return
         """
-        pass
+        self.is_call = True
+        self._translate_call(function_name, n_args)
 
     def translate_line(self, parser):
         if parser.operation_type == 'compute':
@@ -311,6 +369,8 @@ class Translator:
         elif parser.operation_type == 'branching':
             asm_line = self._translate_branching_op(parser.op_code, parser.label)
         elif parser.operation_type == 'call':
+            pass
+        elif parser.operation_type == 'function':
             pass
         elif parser.operation_type == 'return':
             pass
