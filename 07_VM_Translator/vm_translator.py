@@ -59,6 +59,7 @@ class Parser:
             else:
                 raise NotImplementedError
 
+
 class Translator:
     def __init__(self):
         self.file_name = None
@@ -69,7 +70,6 @@ class Translator:
             'this': 'THIS',
             'that': 'THAT'
         }
-        self.is_call = False
         self.return_label = None
         self.asm_output = ''
 
@@ -152,13 +152,19 @@ class Translator:
         self._op_write_d_to_current_stack_pointer()
         self._op_m_increment_stack_pointer()
 
+    def _save_return_address(self, return_label):
+        self._write(f'@{return_label}')
+        self._write('D=M')
+        self._op_write_d_to_current_stack_pointer()
+        self._op_m_increment_stack_pointer()
+
     def _save_pointers(self):
         for p in ('LCL', 'ARG', 'THIS', 'THAT'):
             self._save_pointer(p)
 
     def _set_arg_pointer(self, n_args):
-        # set ARG (SP - 4 - n_args)
-        self._write('@4')
+        # set ARG (SP - 5 - n_args)
+        self._write('@5')
         self._write('D=A')
         self._write(f'@{n_args}')
         self._write('D=D+A')
@@ -211,27 +217,32 @@ class Translator:
         self._write('M=D')
 
     def _translate_call(self, fn_name, n_args):
+        return_label = f'{fn_name}.{self.label_counter}'
+        self._save_return_address(return_label)
         self._save_pointers()
         self._set_arg_pointer(n_args)
         self._set_lcl_pointer()
         self._jump_to_label(fn_name)
 
-        self.return_label = f'{fn_name}.{self.label_counter}'
+        self._write(f'({self.return_label})')
         self._increment_label_counter()
 
     def _translate_function_definition(self, fn_name, n_lcls):
-        self.is_call = False
-        self.clear_return_label()
         self._write(f'({fn_name})', is_label=True)
+        self.return_label = None
+        # set local variable placeholders
+        self._write('D=0')
+        for _ in range(n_lcls):
+            self._op_write_d_to_current_stack_pointer()
+            self._op_m_increment_stack_pointer()
 
-    def _translate_return(self, return_label):
+    def _translate_return(self):
         # return value should be at top of the stack.
         self._set_return_value()
         self._reset_stack_pointer()
         for p in ('LCL', 'ARG', 'THIS', 'THAT'):
             self._reset_pointer(p)
-        if self.return_label is not None:
-            self._jump_to_label(return_label)
+        self._jump_to_label(self.return_label)
 
     def _translate_arithmetic_op(self, operation):
         if operation in ('not', 'neg'):  # one value operation
@@ -269,7 +280,6 @@ class Translator:
 
             self._op_write_d_to_current_stack_pointer()
             self._op_m_increment_stack_pointer()
-        return self.asm_output
 
     def _translate_memory_op(self, operation, memory_segment, address):
         if operation == 'push':
@@ -329,7 +339,6 @@ class Translator:
                 self._write(f'M=D')
             else:
                 raise NotImplementedError(f"memory segment [{memory_segment}] is not defined in POP operation.")
-        return self.asm_output
 
     def _translate_branching_op(self, operation, label):
         if operation == 'label':
@@ -345,38 +354,26 @@ class Translator:
             self._write('D;JEQ')
         else:
             raise NotImplementedError(f'{operation} is not defined on branching operation')
-        return self.asm_output
-
-    def _translate_function_call(self, op_code, function_name, n_args):
-        """
-        - call function
-            - save return address
-            - save pointers: [LCL, ARG, THIS, THAT]
-            - jump to function declaration
-        - run function's sub routine code
-        - return
-        """
-        self.is_call = True
-        self._translate_call(function_name, n_args)
 
     def translate_line(self, parser):
+        self.clear_output()
         if parser.operation_type == 'compute':
-            asm_line = self._translate_arithmetic_op(parser.op_code)
+            self._translate_arithmetic_op(parser.op_code)
         elif parser.operation_type == 'memory':
-            asm_line = self._translate_memory_op(
+            self._translate_memory_op(
                 parser.op_code, parser.memory_segment, parser.address
             )
         elif parser.operation_type == 'branching':
-            asm_line = self._translate_branching_op(parser.op_code, parser.label)
+            self._translate_branching_op(parser.op_code, parser.label)
         elif parser.operation_type == 'call':
-            pass
+            self._translate_call(parser.function_name, parser.n_args)
         elif parser.operation_type == 'function':
-            pass
+            self._translate_function_definition(parser.function_name, parser.n_lcls)
         elif parser.operation_type == 'return':
-            pass
+            self._translate_return()
         else:  # == 'comment'
-            asm_line = None
-        return asm_line
+            self.asm_output = None
+        return self.asm_output
 
     def set_file_name(self, file_name):
         self.file_name = file_name
@@ -416,11 +413,10 @@ class VMtranslator:
                     for line in rf:
                         parser.parse_line(line)
                         asm_line = translator.translate_line(parser)
-                        if asm_line:
+                        if asm_line is not None:
                             if add_annotation and parser.op_code:
                                 wf.write(f'// {parser.line}\n')
                             wf.write(asm_line)
-                        translator.clear_output()
 
         # print output on console
         with open(save_path, 'r') as f:
