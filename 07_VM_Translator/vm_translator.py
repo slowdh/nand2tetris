@@ -65,7 +65,8 @@ class Parser:
 
 
 class Translator:
-    def __init__(self):
+    def __init__(self, add_annotation, include_bootstrapping=True):
+        self.add_annotation = add_annotation
         self.file_name = None
         self.label_counter = 0
         self.segment_symbol_table = {
@@ -75,11 +76,13 @@ class Translator:
             'that': 'THAT'
         }
         self.asm_output = ''
-        self._initialize_program()
+        if include_bootstrapping:
+            self._initialize_program()
 
     def _initialize_program(self):
         # init SP
-        self._write('//initialize pointers and call sys.init', indent=False)
+        if self.add_annotation:
+            self._write('//initialize pointers and call sys.init', indent=False)
         self._op_d_set_value(256)
         self._write(f'@SP')
         self._write('M=D')
@@ -408,8 +411,10 @@ class Translator:
 
 
 class VMtranslator:
-    def __init__(self, dir_or_path):
+    def __init__(self, dir_or_path, include_bootstrapping=True):
         self.file_paths = self._get_file_paths(dir_or_path)
+        self.save_path = self._get_save_path(dir_or_path)
+        self.include_bootstrapping = include_bootstrapping
 
     @staticmethod
     def _get_file_paths(dir_or_path):
@@ -421,20 +426,28 @@ class VMtranslator:
         return paths
 
     @staticmethod
+    def _get_save_path(dir_or_path):
+        if os.path.isdir(dir_or_path):
+            file_name = dir_or_path.split('/')[-1]
+            file_name += '.asm'
+            save_path = os.path.join(dir_or_path, file_name)
+        else:
+            save_path = dir_or_path.replace('vm', 'asm')
+        return save_path
+
+    @staticmethod
     def _get_file_name(file_path):
         return file_path.split('/')[-1].split('.')[0]
 
     def translate(self, add_annotation=False):
-        save_path = self.file_paths[0].replace('.vm', '.asm')
-
         parser = Parser()
-        translator = Translator()
+        translator = Translator(add_annotation, self.include_bootstrapping)
         for idx, path in enumerate(self.file_paths):
             file_name = self._get_file_name(path)
             translator.file_name = file_name
             with open(path, 'r') as rf:
                 write_mode = 'w' if idx == 0 else 'a'
-                with open(save_path, write_mode) as wf:
+                with open(self.save_path, write_mode) as wf:
                     for line in rf:
                         parser.parse_line(line)
                         asm_line = translator.translate_line(parser)
@@ -445,12 +458,11 @@ class VMtranslator:
                         translator.clear_output()
 
         # print output on console
-        with open(save_path, 'r') as f:
+        with open(self.save_path, 'r') as f:
             print(f.read())
 
 
 if __name__ == '__main__':
-    test_dir_or_path = './function_test/SimpleFunction.vm'
-
-    vm_translator = VMtranslator(test_dir_or_path)
+    test_dir_or_path = '/Users/leo/Desktop/fun/programming/nand2tetris/projects/08/ProgramFlow/BasicLoop/BasicLoop.vm'
+    vm_translator = VMtranslator(test_dir_or_path, include_bootstrapping=False)
     vm_translator.translate(add_annotation=True)
