@@ -74,20 +74,27 @@ class Translator:
             'this': 'THIS',
             'that': 'THAT'
         }
-        self.return_label = None
         self.asm_output = ''
+        self._initialize_program()
 
-    def clear_return_label(self):
-        self.return_label = None
+    def _initialize_program(self):
+        # init SP
+        self._write('//initialize pointers and call sys.init', indent=False)
+        self._op_d_set_value(256)
+        self._write(f'@SP')
+        self._write('M=D')
+
+        # run sys.init 0
+        self._translate_call('Sys.init', 0)
 
     def _increment_label_counter(self):
         self.label_counter += 1
 
-    def _write(self, line, is_label=False):
-        if is_label:
-            indent = ''
-        else:
+    def _write(self, line, indent=True):
+        if indent:
             indent = '    '
+        else:
+            indent = ''
         self.asm_output += indent + line + '\n'
 
     def _op_m_decrement_stack_pointer(self):
@@ -117,10 +124,10 @@ class Translator:
         self._write('0;JMP')
 
         # set D=true
-        self._write(f'({comp_type}_{self.label_counter})', is_label=True)
+        self._write(f'({comp_type}_{self.label_counter})', indent=False)
         self._write('@-1')
         self._write('D=A')
-        self._write(f'(END_{comp_type}_{self.label_counter})', is_label=True)
+        self._write(f'(END_{comp_type}_{self.label_counter})', indent=False)
 
         self._increment_label_counter()
 
@@ -236,19 +243,18 @@ class Translator:
         self._write('M=D')
 
     def _translate_call(self, fn_name, n_args):
-        self.return_label = f'{fn_name}.{self.label_counter}'
-        self._save_return_address(self.return_label)
+        return_label = f'{fn_name}.{self.label_counter}'
+        self._save_return_address(return_label)
         self._save_pointers()
         self._set_arg_pointer(n_args)
         self._set_lcl_pointer()
         self._jump_to_label(fn_name)
 
-        self._write(f'({self.return_label})')
+        self._write(f'({return_label})')
         self._increment_label_counter()
 
     def _translate_function_definition(self, fn_name, n_lcls):
-        self._write(f'({fn_name})', is_label=True)
-        self.return_label = None
+        self._write(f'({fn_name})', indent=False)
         # set local variable placeholders
         self._write('D=0')
         for _ in range(n_lcls):
@@ -364,7 +370,7 @@ class Translator:
 
     def _translate_branching_op(self, operation, label):
         if operation == 'label':
-            self._write(f'({label})', is_label=True)
+            self._write(f'({label})', indent=True)
         elif operation == 'goto':
             self._write(f'@{label}')
             self._write(f'0;JMP')
@@ -378,7 +384,6 @@ class Translator:
             raise NotImplementedError(f'{operation} is not defined on branching operation')
 
     def translate_line(self, parser):
-        self.clear_output()
         if parser.operation_type == 'compute':
             self._translate_arithmetic_op(parser.op_code)
         elif parser.operation_type == 'memory':
@@ -393,8 +398,6 @@ class Translator:
             self._translate_function_definition(parser.function_name, parser.n_lcls)
         elif parser.operation_type == 'return':
             self._translate_return()
-        else:  # == 'comment'
-            self.asm_output = None
         return self.asm_output
 
     def set_file_name(self, file_name):
@@ -435,10 +438,11 @@ class VMtranslator:
                     for line in rf:
                         parser.parse_line(line)
                         asm_line = translator.translate_line(parser)
-                        if asm_line is not None:
+                        if len(asm_line) != 0:
                             if add_annotation and parser.op_code:
                                 wf.write(f'// {parser.line}\n')
                             wf.write(asm_line)
+                        translator.clear_output()
 
         # print output on console
         with open(save_path, 'r') as f:
@@ -446,7 +450,7 @@ class VMtranslator:
 
 
 if __name__ == '__main__':
-    test_dir_or_path = './function_test/SimpleFUnction.vm'
+    test_dir_or_path = './function_test/SimpleFunction.vm'
 
     vm_translator = VMtranslator(test_dir_or_path)
     vm_translator.translate(add_annotation=True)
