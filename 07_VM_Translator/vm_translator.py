@@ -52,12 +52,16 @@ class Parser:
             if op_code in ('push', 'pop'):
                 self.operation_type = 'memory'
                 self.op_code, self.memory_segment, self.address = op_arr
-            elif self.operation_type == 'call':
-                self.op_code, self.function_name, self.n_args = op_arr
-            elif self.operation_type == 'function':
-                self.op_code, self.function_name, self.n_lcls = op_arr
+            elif op_code == 'call':
+                self.operation_type = 'call'
+                self.op_code, self.function_name = op_arr[:2]
+                self.n_args = int(op_arr[2])
+            elif op_code == 'function':
+                self.operation_type = 'function'
+                self.op_code, self.function_name = op_arr[:2]
+                self.n_lcls = int(op_arr[2])
             else:
-                raise NotImplementedError
+                raise NotImplementedError(f'op_code {op_code} is not implemented')
 
 
 class Translator:
@@ -217,6 +221,20 @@ class Translator:
         self._write(f'@{endframe}')
         self._write('M=D')
 
+    def _save_endframe_to_r13(self):
+        # endframe == LCL
+        self._write('@LCL')
+        self._write('D=M')
+        self._write('@R13')
+        self._write('M=D')
+
+    def _save_return_address_to_r14(self):
+        # return_address = *(end_frame - 5)
+        self._op_m_get_symbol_n_prev_value('LCL', 5)
+        self._write('D=M')
+        self._write('@R14')
+        self._write('M=D')
+
     def _translate_call(self, fn_name, n_args):
         self.return_label = f'{fn_name}.{self.label_counter}'
         self._save_return_address(self.return_label)
@@ -236,20 +254,6 @@ class Translator:
         for _ in range(n_lcls):
             self._op_write_d_to_current_stack_pointer()
             self._op_m_increment_stack_pointer()
-
-    def _save_endframe_to_r13(self):
-        # endframe == LCL
-        self._write('@LCL')
-        self._write('D=M')
-        self._write('@R13')
-        self._write('M=D')
-
-    def _save_return_address_to_r14(self):
-        # return_address = *(end_frame - 5)
-        self._op_m_get_symbol_n_prev_value('LCL', 5)
-        self._write('D=M')
-        self._write('@R14')
-        self._write('M=D')
 
     def _translate_return(self):
         # return value should be at top of the stack.
@@ -442,6 +446,7 @@ class VMtranslator:
 
 
 if __name__ == '__main__':
-    test_dir_or_path = '../../projects/08/ProgramFlow/BasicLoop/BasicLoop.vm'
+    test_dir_or_path = './function_test/SimpleFUnction.vm'
+
     vm_translator = VMtranslator(test_dir_or_path)
     vm_translator.translate(add_annotation=True)
