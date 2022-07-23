@@ -182,6 +182,7 @@ class Translator:
 
     def _jump_to_label(self, label):
         self._write(f'@{label}')
+        self._write('A=M')
         self._write('0;JMP')
 
     def _set_return_value(self):
@@ -198,7 +199,7 @@ class Translator:
         self._write('@SP')
         self._write('M=D')
 
-    def _reset_pointer(self, symbol):
+    def _retrieve_pointer(self, symbol, endframe):
         # push onto global stack: [LCL, ARG, THIS, THAT]
         if symbol == 'THAT':
             n_prev = 1
@@ -211,14 +212,14 @@ class Translator:
         else:
             raise NotImplementedError
 
-        self._op_m_get_symbol_n_prev_value(symbol, n_prev)
+        self._op_m_get_symbol_n_prev_value(endframe, n_prev)
         self._write('D=M')
-        self._write(f'@{symbol}')
+        self._write(f'@{endframe}')
         self._write('M=D')
 
     def _translate_call(self, fn_name, n_args):
-        return_label = f'{fn_name}.{self.label_counter}'
-        self._save_return_address(return_label)
+        self.return_label = f'{fn_name}.{self.label_counter}'
+        self._save_return_address(self.return_label)
         self._save_pointers()
         self._set_arg_pointer(n_args)
         self._set_lcl_pointer()
@@ -236,13 +237,30 @@ class Translator:
             self._op_write_d_to_current_stack_pointer()
             self._op_m_increment_stack_pointer()
 
+    def _save_endframe_to_r13(self):
+        # endframe == LCL
+        self._write('@LCL')
+        self._write('D=M')
+        self._write('@R13')
+        self._write('M=D')
+
+    def _save_return_address_to_r14(self):
+        # return_address = *(end_frame - 5)
+        self._op_m_get_symbol_n_prev_value('LCL', 5)
+        self._write('D=M')
+        self._write('@R14')
+        self._write('M=D')
+
     def _translate_return(self):
         # return value should be at top of the stack.
+        # R13 = frame, R14 = return_address
+        self._save_endframe_to_r13()
+        self._save_return_address_to_r14()
         self._set_return_value()
         self._reset_stack_pointer()
         for p in ('LCL', 'ARG', 'THIS', 'THAT'):
-            self._reset_pointer(p)
-        self._jump_to_label(self.return_label)
+            self._retrieve_pointer(p, 'R13')
+        self._jump_to_label('R14')
 
     def _translate_arithmetic_op(self, operation):
         if operation in ('not', 'neg'):  # one value operation
