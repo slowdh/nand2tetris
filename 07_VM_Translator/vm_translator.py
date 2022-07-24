@@ -144,15 +144,13 @@ class Translator:
         self._write(f'D;J{comp_type}')
 
         # set D=false
-        self._write('@0')
-        self._write('D=A')
+        self._write('D=0')
         self._write(f'@END_{comp_type}_{self.label_counter}')
         self._write('0;JMP')
 
         # set D=true
         self._write(f'({comp_type}_{self.label_counter})', indent=False)
-        self._write('@-1')
-        self._write('D=A')
+        self._write('D=-1')
         self._write(f'(END_{comp_type}_{self.label_counter})', indent=False)
 
         self._increment_label_counter()
@@ -320,12 +318,14 @@ class Translator:
 
     def _translate_arithmetic_op(self, operation):
         if operation in ('not', 'neg'):  # one value operation
+            self._op_m_decrement_stack_pointer()
             if operation == 'not':
                 self._op_m_get_current_stack_value()
                 self._write('M=!M')
             else:  # == 'neg'
                 self._op_m_get_current_stack_value()
                 self._write('M=-M')
+            self._op_m_increment_stack_pointer()
         else:  # two value operation
             # set target values into D, A
             self._op_m_decrement_stack_pointer()
@@ -480,6 +480,6 @@ class VMtranslator:
 
 
 if __name__ == '__main__':
-    test_dir_or_path = '/Users/leo/Desktop/fun/programming/nand2tetris/projects/07/MemoryAccess/BasicTest/BasicTest.vm'
+    test_dir_or_path = '/Users/leo/Desktop/fun/programming/nand2tetris/projects/07/StackArithmetic/StackTest/StackTest.vm'
     vm_translator = VMtranslator(test_dir_or_path, include_bootstrapping=False)
     vm_translator.translate(add_annotation=True)
