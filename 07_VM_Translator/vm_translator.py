@@ -78,6 +78,8 @@ class Translator:
         self.asm_output = ''
         if include_bootstrapping:
             self._initialize_program()
+        else:
+            self._initialize_pointers()
 
     def _initialize_program(self):
         # init SP
@@ -89,6 +91,27 @@ class Translator:
 
         # run sys.init 0
         self._translate_call('Sys.init', 0)
+
+    def _initialize_pointers(self):
+        self._op_d_set_value(256)
+        self._write(f'@SP')
+        self._write('M=D')
+
+        self._op_d_set_value(300)
+        self._write(f'@LCL')
+        self._write('M=D')
+
+        self._op_d_set_value(400)
+        self._write(f'@ARG')
+        self._write('M=D')
+
+        self._op_d_set_value(3000)
+        self._write(f'@THIS')
+        self._write('M=D')
+
+        self._op_d_set_value(3010)
+        self._write(f'@THAT')
+        self._write('M=D')
 
     def _increment_label_counter(self):
         self.label_counter += 1
@@ -159,6 +182,22 @@ class Translator:
         self._write(f'@{symbol}')
         self._write('A=M-D')
 
+    def _op_a_get_memory_segment_address(self, memory_segment, address):
+        # get memory address to store data
+        if memory_segment in self.segment_symbol_table:
+            segment_symbol = self.segment_symbol_table[memory_segment]
+            self._op_a_get_segment_address(segment_symbol, address)
+        elif memory_segment == 'static':
+            self._write(f'@{self.file_name}.{address}')
+        elif memory_segment == 'temp':
+            self._write(f'@{5 + int(address)}')
+        elif memory_segment == 'pointer':
+            symbol = 'THIS' if address == 0 else 'THAT'
+            self._write(f'@{symbol}')
+            self._write('A=M')
+        else:
+            raise NotImplementedError(f"memory segment [{memory_segment}] is not defined in memory operation.")
+
     def _save_pointer(self, pointer):
         # push onto global stack: [LCL, ARG, THIS, THAT]
         self._write(f'@{pointer}')
@@ -196,7 +235,6 @@ class Translator:
 
     def _jump_to_label(self, label):
         self._write(f'@{label}')
-        self._write('A=M')
         self._write('0;JMP')
 
     def _set_return_value(self):
@@ -245,6 +283,11 @@ class Translator:
         self._write('@R14')
         self._write('M=D')
 
+    def _op_d_pop_value(self):
+        self._op_m_decrement_stack_pointer()
+        self._op_m_get_current_stack_value()
+        self._write('D=M')
+
     def _translate_call(self, fn_name, n_args):
         return_label = f'{fn_name}.{self.label_counter}'
         self._save_return_address(return_label)
@@ -253,7 +296,7 @@ class Translator:
         self._set_lcl_pointer()
         self._jump_to_label(fn_name)
 
-        self._write(f'({return_label})')
+        self._write(f'({return_label})', indent=False)
         self._increment_label_counter()
 
     def _translate_function_definition(self, fn_name, n_lcls):
@@ -315,24 +358,12 @@ class Translator:
     def _translate_memory_op(self, operation, memory_segment, address):
         if operation == 'push':
             # set d as value to insert.
-            if memory_segment in self.segment_symbol_table:
-                segment_symbol = self.segment_symbol_table[memory_segment]
-                self._op_a_get_segment_address(segment_symbol, address)
-                self._write('D=M')
-            elif memory_segment == 'constant':
-                self._op_d_set_value(address)
-            elif memory_segment == 'static':
-                self._write(f'@{self.file_name}.{address}')
-                self._write('D=M')
-            elif memory_segment == 'temp':
-                self._write(f'@{5 + int(address)}')
-                self._write('D=M')
-            elif memory_segment == 'pointer':
-                symbol = 'THIS' if address == 0 else 'THAT'
-                self._write(f'@{symbol}')
-                self._write('D=M')
+            if memory_segment == 'constant':
+                self._write(f'@{address}')
+                self._write('D=A')
             else:
-                raise NotImplementedError(f"memory segment [{memory_segment}] is not defined in PUSH operation.")
+                self._op_a_get_memory_segment_address(memory_segment, address)
+                self._write('D=M')
 
             # push to stack
             self._op_write_d_to_current_stack_pointer()
@@ -340,36 +371,19 @@ class Translator:
         else:
             assert operation == 'pop'
             assert memory_segment != 'constant'
-            self._op_m_decrement_stack_pointer()
-            self._op_m_get_current_stack_value()
-            self._write('D=M')
+            # get memory address to store data
+            self._op_a_get_memory_segment_address(memory_segment, address)
 
-            # set address to R13
-            if memory_segment in self.segment_symbol_table:
-                segment_symbol = self.segment_symbol_table[memory_segment]
-                self._op_a_get_segment_address(segment_symbol, address)
-                self._write('D=M')
-                self._write('@R13')
-                self._write('M=D')
+            # put address into R13
+            self._write('D=A')
+            self._write('@R13')
+            self._write('M=D')
 
-                # set top stack value to register
-                self._op_m_get_current_stack_value()
-                self._write('D=M')
-                self._write('@R13')
-                self._write('A=M')
-                self._write('M=D')
-            elif memory_segment == 'static':
-                self._write(f'@{self.file_name}.{address}')
-                self._write(f'M=D')
-            elif memory_segment == 'temp':
-                self._write(f'@{5 + int(address)}')
-                self._write(f'M=D')
-            elif memory_segment == 'pointer':
-                symbol = 'THIS' if address == 0 else 'THAT'
-                self._write(f'@{symbol}')
-                self._write(f'M=D')
-            else:
-                raise NotImplementedError(f"memory segment [{memory_segment}] is not defined in POP operation.")
+            # set top stack value to register
+            self._op_d_pop_value()
+            self._write('@R13')
+            self._write('A=M')
+            self._write('M=D')
 
     def _translate_branching_op(self, operation, label):
         if operation == 'label':
@@ -453,7 +467,10 @@ class VMtranslator:
                         asm_line = translator.translate_line(parser)
                         if len(asm_line) != 0:
                             if add_annotation and parser.op_code:
-                                wf.write(f'// {parser.line}\n')
+                                annotation = f'  // {parser.line}'
+                                line_split = asm_line.split('\n')
+                                line_split[0] += annotation
+                                asm_line = '\n'.join(line_split)
                             wf.write(asm_line)
                         translator.clear_output()
 
@@ -463,6 +480,6 @@ class VMtranslator:
 
 
 if __name__ == '__main__':
-    test_dir_or_path = '/Users/leo/Desktop/fun/programming/nand2tetris/projects/08/ProgramFlow/BasicLoop/BasicLoop.vm'
+    test_dir_or_path = '/Users/leo/Desktop/fun/programming/nand2tetris/projects/07/MemoryAccess/BasicTest/BasicTest.vm'
     vm_translator = VMtranslator(test_dir_or_path, include_bootstrapping=False)
     vm_translator.translate(add_annotation=True)
