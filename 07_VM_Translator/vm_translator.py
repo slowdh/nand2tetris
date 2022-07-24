@@ -190,9 +190,8 @@ class Translator:
         elif memory_segment == 'temp':
             self._write(f'@{5 + int(address)}')
         elif memory_segment == 'pointer':
-            symbol = 'THIS' if address == 0 else 'THAT'
+            symbol = 'THIS' if address == '0' else 'THAT'
             self._write(f'@{symbol}')
-            self._write('A=M')
         else:
             raise NotImplementedError(f"memory segment [{memory_segment}] is not defined in memory operation.")
 
@@ -480,6 +479,7 @@ class VMtranslator:
 
 
 if __name__ == '__main__':
-    test_dir_or_path = '/Users/leo/Desktop/fun/programming/nand2tetris/projects/07/StackArithmetic/StackTest/StackTest.vm'
+    test_dir_or_path = '/Users/leo/Desktop/fun/programming/nand2tetris/projects/07/' \
+                       'MemoryAccess/StaticTest/StaticTest.vm'
     vm_translator = VMtranslator(test_dir_or_path, include_bootstrapping=False)
     vm_translator.translate(add_annotation=True)

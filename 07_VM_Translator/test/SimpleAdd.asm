@@ -1,31 +1,50 @@
-@7
-D=A
-@SP
-A=M
-M=D
-@SP
-M=M+1
-@8
-D=A
-@SP
-A=M
-M=D
-@SP
-M=M+1
-@SP
-M=M-1
-@SP
-A=M
-D=M
-@SP
-M=M-1
-@SP
-A=M
-A=M
-D=D+A
-@SP
-A=M
-M=D
-@SP
-M=M+1
-
+    @256
+    D=A
+    @SP
+    M=D
+    @300
+    D=A
+    @LCL
+    M=D
+    @400
+    D=A
+    @ARG
+    M=D
+    @3000
+    D=A
+    @THIS
+    M=D
+    @3010
+    D=A
+    @THAT
+    M=D
+    @7  // push constant 7
+    D=A
+    @SP
+    A=M
+    M=D
+    @SP
+    M=M+1
+    @8  // push constant 8
+    D=A
+    @SP
+    A=M
+    M=D
+    @SP
+    M=M+1
+    @SP  // add
+    M=M-1
+    @SP
+    A=M
+    D=M
+    @SP
+    M=M-1
+    @SP
+    A=M
+    A=M
+    D=D+A
+    @SP
+    A=M
+    M=D
+    @SP
+    M=M+1

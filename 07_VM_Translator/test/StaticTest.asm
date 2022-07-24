@@ -1,96 +1,130 @@
-@111
-D=A
-@SP
-A=M
-M=D
-@SP
-M=M+1
-@333
-D=A
-@SP
-A=M
-M=D
-@SP
-M=M+1
-@888
-D=A
-@SP
-A=M
-M=D
-@SP
-M=M+1
-@SP
-M=M-1
-@SP
-A=M
-D=M
-@StaticTest.8
-M=D
-@SP
-M=M-1
-@SP
-A=M
-D=M
-@StaticTest.3
-M=D
-@SP
-M=M-1
-@SP
-A=M
-D=M
-@StaticTest.1
-M=D
-@StaticTest.3
-D=M
-@SP
-A=M
-M=D
-@SP
-M=M+1
-@StaticTest.1
-D=M
-@SP
-A=M
-M=D
-@SP
-M=M+1
-@SP
-M=M-1
-@SP
-A=M
-D=M
-@SP
-M=M-1
-@SP
-A=M
-A=M
-D=D-A
-@SP
-A=M
-M=D
-@SP
-M=M+1
-@StaticTest.8
-D=M
-@SP
-A=M
-M=D
-@SP
-M=M+1
-@SP
-M=M-1
-@SP
-A=M
-D=M
-@SP
-M=M-1
-@SP
-A=M
-A=M
-D=D+A
-@SP
-A=M
-M=D
-@SP
-M=M+1
-
+    @256
+    D=A
+    @SP
+    M=D
+    @300
+    D=A
+    @LCL
+    M=D
+    @400
+    D=A
+    @ARG
+    M=D
+    @3000
+    D=A
+    @THIS
+    M=D
+    @3010
+    D=A
+    @THAT
+    M=D
+    @111  // push constant 111
+    D=A
+    @SP
+    A=M
+    M=D
+    @SP
+    M=M+1
+    @333  // push constant 333
+    D=A
+    @SP
+    A=M
+    M=D
+    @SP
+    M=M+1
+    @888  // push constant 888
+    D=A
+    @SP
+    A=M
+    M=D
+    @SP
+    M=M+1
+    @StaticTest.8  // pop static 8
+    D=A
+    @R13
+    M=D
+    @SP
+    M=M-1
+    @SP
+    A=M
+    D=M
+    @R13
+    A=M
+    M=D
+    @StaticTest.3  // pop static 3
+    D=A
+    @R13
+    M=D
+    @SP
+    M=M-1
+    @SP
+    A=M
+    D=M
+    @R13
+    A=M
+    M=D
+    @StaticTest.1  // pop static 1
+    D=A
+    @R13
+    M=D
+    @SP
+    M=M-1
+    @SP
+    A=M
+    D=M
+    @R13
+    A=M
+    M=D
+    @StaticTest.3  // push static 3
+    D=M
+    @SP
+    A=M
+    M=D
+    @SP
+    M=M+1
+    @StaticTest.1  // push static 1
+    D=M
+    @SP
+    A=M
+    M=D
+    @SP
+    M=M+1
+    @SP  // sub
+    M=M-1
+    @SP
+    A=M
+    D=M
+    @SP
+    M=M-1
+    @SP
+    A=M
+    A=M
+    D=A-D
+    @SP
+    A=M
+    M=D
+    @SP
+    M=M+1
+    @StaticTest.8  // push static 8
+    D=M
+    @SP
+    A=M
+    M=D
+    @SP
+    M=M+1
+    @SP  // add
+    M=M-1
+    @SP
+    A=M
+    D=M
+    @SP
+    M=M-1
+    @SP
+    A=M
+    A=M
+    D=D+A
+    @SP
+    A=M
+    M=D
+    @SP
+    M=M+1
