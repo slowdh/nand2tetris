@@ -338,7 +338,7 @@ class Translator:
             if operation == 'add':
                 self._write('D=D+A')
             elif operation == 'sub':
-                self._write('D=D-A')
+                self._write('D=A-D')
             elif operation == 'and':
                 self._write('D=D&A')
             elif operation == 'or':
