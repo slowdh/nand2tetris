@@ -139,7 +139,7 @@ class Translator:
         assert comp_type in ('EQ', 'GT', 'LT')
 
         # compare and branching
-        self._write('D=D-A')
+        self._write('D=M-D')
         self._write(f'@{comp_type}_{self.label_counter}')
         self._write(f'D;J{comp_type}')
 
@@ -263,7 +263,7 @@ class Translator:
 
         self._op_m_get_symbol_n_prev_value(endframe, n_prev)
         self._write('D=M')
-        self._write(f'@{endframe}')
+        self._write(f'@{symbol}')
         self._write('M=D')
 
     def _save_endframe_to_r13(self):
@@ -299,8 +299,8 @@ class Translator:
     def _translate_function_definition(self, fn_name, n_lcls):
         self._write(f'({fn_name})', indent=False)
         # set local variable placeholders
-        self._write('D=0')
         for _ in range(n_lcls):
+            self._write('D=0')
             self._op_write_d_to_current_stack_pointer()
             self._op_m_increment_stack_pointer()
 
@@ -313,7 +313,10 @@ class Translator:
         self._reset_stack_pointer()
         for p in ('LCL', 'ARG', 'THIS', 'THAT'):
             self._retrieve_pointer(p, 'R13')
-        self._jump_to_label('R14')
+        # jump to R14 value
+        self._write('@R14')
+        self._write('A=M')
+        self._write('0;JMP')
 
     def _translate_arithmetic_op(self, operation):
         if operation in ('not', 'neg'):  # one value operation
@@ -332,16 +335,15 @@ class Translator:
             self._write('D=M')
             self._op_m_decrement_stack_pointer()
             self._op_m_get_current_stack_value()
-            self._write('A=M')
 
             if operation == 'add':
-                self._write('D=D+A')
+                self._write('D=D+M')
             elif operation == 'sub':
-                self._write('D=A-D')
+                self._write('D=M-D')
             elif operation == 'and':
-                self._write('D=D&A')
+                self._write('D=D&M')
             elif operation == 'or':
-                self._write('D=D|A')
+                self._write('D=D|M')
             elif operation == 'eq':
                 self._op_d_write_comp_branch('EQ')
             elif operation == 'gt':
@@ -479,6 +481,6 @@ class VMtranslator:
 
 
 if __name__ == '__main__':
-    test_dir_or_path = '/Users/leo/Desktop/fun/programming/nand2tetris/projects/08/ProgramFlow/FibonacciSeries/FibonacciSeries.vm'
+    test_dir_or_path = '/Users/leo/Desktop/fun/programming/nand2tetris/projects/08/FunctionCalls/SimpleFunction/SimpleFunction.vm'
     vm_translator = VMtranslator(test_dir_or_path, include_bootstrapping=False)
     vm_translator.translate(add_annotation=True)
