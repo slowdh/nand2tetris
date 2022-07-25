@@ -386,16 +386,16 @@ class Translator:
 
     def _translate_branching_op(self, operation, label):
         if operation == 'label':
-            self._write(f'({label})', indent=True)
+            self._write(f'({label})', indent=False)
         elif operation == 'goto':
             self._write(f'@{label}')
             self._write(f'0;JMP')
         elif operation == 'if-goto':
             self._op_m_decrement_stack_pointer()
             self._op_m_get_current_stack_value()
-            self._write('D=M+1')
+            self._write('D=M')
             self._write(f'@{label}')
-            self._write('D;JEQ')
+            self._write('D;JNE')
         else:
             raise NotImplementedError(f'{operation} is not defined on branching operation')
 
@@ -479,7 +479,6 @@ class VMtranslator:
 
 
 if __name__ == '__main__':
-    test_dir_or_path = '/Users/leo/Desktop/fun/programming/nand2tetris/projects/07/' \
-                       'MemoryAccess/StaticTest/StaticTest.vm'
+    test_dir_or_path = '/Users/leo/Desktop/fun/programming/nand2tetris/projects/08/ProgramFlow/FibonacciSeries/FibonacciSeries.vm'
     vm_translator = VMtranslator(test_dir_or_path, include_bootstrapping=False)
     vm_translator.translate(add_annotation=True)
