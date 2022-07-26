@@ -204,7 +204,7 @@ class Translator:
 
     def _save_return_address(self, return_label):
         self._write(f'@{return_label}')
-        self._write('D=M')
+        self._write('D=A')
         self._op_write_d_to_current_stack_pointer()
         self._op_m_increment_stack_pointer()
 
