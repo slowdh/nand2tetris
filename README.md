@@ -113,7 +113,7 @@ These gates would be basic building blocks for building even complex chips.
      1. Code mapping (follow rules).
 
 
-## 07_VM_Translator
+## 07-08_VM_Translator
 #### Virtual Machine Language is a middle ground in between high level language and machine language.
 
 - What is Virtual Machine?
@@ -129,10 +129,26 @@ These gates would be basic building blocks for building even complex chips.
   - Operations are done on top of Stack.
     - [add, sub, neg, eq, gt, lt, and, or, not]
     - SP (Stack Pointer) takes care of operation sequence.
+
     
   - Accessing memory is done with Push / Pop commands to Stack.
     - Virtual memory consists of 8 segments.
       - local, argument, this, that, constant, static, temp, pointer.
       - Why divided like this?
         - local, static are for variable scope. (i.e. local, global variable)
-    
+        - pointer, this and that is for referencing current processing object / array
+
+  
+  - Function declaration, call, return
+    - Handling function definition.
+      - Makes a subroutine label. When function is called, jump to the declared function label and get the function code run.
+      - Push local variable placeholder. (or move stack pointer)
+      
+    - Handling function call.
+      - Save current status include [return address, LCL, ARG, THIS, THAT]
+      - Jump to function label
+
+    - Handling return.
+      - Retrieve saved pointers.
+      - Set return value to the right place on stack.
+      - Jump to original code.
