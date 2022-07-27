@@ -481,6 +481,6 @@ class VMtranslator:
 
 
 if __name__ == '__main__':
-    test_dir_or_path = '/Users/leo/Desktop/fun/programming/nand2tetris/projects/08/FunctionCalls/SimpleFunction/SimpleFunction.vm'
+    test_dir_or_path = '/Users/leo/Desktop/fun/programming/nand2tetris/projects/08/FunctionCalls/NestedCall'
     vm_translator = VMtranslator(test_dir_or_path, include_bootstrapping=False)
     vm_translator.translate(add_annotation=True)
